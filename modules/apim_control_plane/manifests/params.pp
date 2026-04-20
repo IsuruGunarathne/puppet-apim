@@ -77,4 +77,7 @@ class apim_control_plane::params inherits apim_common::params {
   ]
 
   $event_listener_notification_endpoint = 'https://cp.wso2.com:${mgt.transport.https.port}/internal/data/v1/notify'
+
+  $key_manager_server_url = 'https://km.wso2.com:${mgt.transport.https.port}${carbon.context}services/'
+  $api_devportal_url      = 'https://cp.wso2.com:${mgt.transport.https.port}/devportal'
 }
