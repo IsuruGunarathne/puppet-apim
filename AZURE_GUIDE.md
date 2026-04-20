@@ -325,9 +325,12 @@ tail -f /mnt/apim_km/wso2am-km-4.6.0/repository/logs/wso2carbon.log
 On **your local machine**, add the public IPs to `/etc/hosts`:
 
 ```
-<apim-cp-public-ip>  cp.wso2.com
-<apim-gw-public-ip>  gw.wso2.com
+<apim-cp-public-ip>   cp.wso2.com
+<apim-gw-public-ip>   gw.wso2.com
+<apim-km-public-ip>   km.wso2.com
 ```
+
+> **Note:** Make sure each hostname appears only once. Duplicate entries cause macOS/Linux to use the first match, which can send traffic to the wrong IP.
 
 Then access:
 - **Publisher**: `https://cp.wso2.com:9443/publisher`
@@ -345,3 +348,5 @@ Default credentials: `admin` / `admin`
 - **Set the profile fact before requesting the cert** — otherwise Puppet tries to declare an empty class and fails.
 - **WSO2 uses `postgre` (not `postgresql`) as the `db_type` value** in `deployment.toml`.
 - **Start order matters**: TM → CP → Gateway → KM.
+- **If you get "Registered callback does not match" on login**, the CP started with the wrong hostname and registered OAuth apps with stale callback URLs in the DB. Fix: stop all services, drop and recreate the databases, re-run the schema scripts, then restart. The CP will re-register the OAuth apps with the correct hostname on startup.
+- **Duplicate `/etc/hosts` entries on your local machine** will cause traffic to go to the wrong IP — macOS uses the first matching entry. Each hostname must appear only once.
