@@ -228,9 +228,9 @@ password = "${admin.password}"
 enable = true
 username= "$ref{super_admin.username}"
 password= "$ref{super_admin.password}"
-service_url = "https://localhost:${mgt.transport.https.port}/services/"
-event_listening_endpoints = ["tcp://localhost:5672"]
+service_url = "https://<%= @hostname %>:${mgt.transport.https.port}/services/"
+event_listening_endpoints = ["tcp://<%= @hostname %>:5672"]
 
 [[apim.event_hub.publish.url_group]]
-urls = ["tcp://localhost:9611"]
-auth_urls = ["ssl://localhost:9711"]
+urls = ["tcp://<%= @hostname %>:9611"]
+auth_urls = ["ssl://<%= @hostname %>:9711"]
