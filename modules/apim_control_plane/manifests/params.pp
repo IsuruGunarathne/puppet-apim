@@ -20,25 +20,61 @@ class apim_control_plane::params inherits apim_common::params {
 
   $start_script_template = 'bin/api-cp.sh'
   $jvmxms = '256m'
-  $jvmxmx = '1024m'
+  $jvmxmx = '2048m'
 
   $template_list = [
     'repository/conf/deployment.toml',
   ]
 
-  # Define file list
-  $file_list = []
+  $file_list = [
+    'repository/components/lib/postgresql-42.7.3.jar'
+  ]
 
-  # Define remove file list
   $file_removelist = []
 
-  # ----- Carbon.xml config params -----
   $ports_offset = 0
-  /*
-     Host name or IP address of the machine hosting this server
-     e.g. www.wso2.org, 192.168.1.10
-     This is will become part of the End Point Reference of the
-     services deployed on this server instance.
-  */
-  $hostname = 'localhost'
+  $hostname = 'cp.wso2.com'
+
+  # PostgreSQL database config
+  $wso2am_db_url              = 'jdbc:postgresql://db.wso2.com:5432/apimgt'
+  $wso2am_db_username         = 'apimuser'
+  $wso2am_db_password         = 'apimpassword'
+  $wso2am_db_type             = 'postgre'
+  $wso2am_db_validation_query = 'SELECT 1'
+
+  $wso2shared_db_url              = 'jdbc:postgresql://db.wso2.com:5432/shareddb'
+  $wso2shared_db_username         = 'apimuser'
+  $wso2shared_db_password         = 'apimpassword'
+  $wso2shared_db_type             = 'postgre'
+  $wso2shared_db_validation_query = 'SELECT 1'
+
+  # Gateway environment pointing to GW node
+  $gateway_environments = [
+    {
+      type                                  => 'hybrid',
+      name                                  => 'Default',
+      gateway_type                          => 'Regular',
+      provider                              => 'wso2',
+      description                           => 'This is a hybrid gateway that handles both production and sandbox token traffic.',
+      server_url                            => 'https://gw.wso2.com:${mgt.transport.https.port}${carbon.context}services/',
+      ws_endpoint                           => 'ws://gw.wso2.com:9099',
+      wss_endpoint                          => 'wss://gw.wso2.com:8099',
+      http_endpoint                         => 'http://gw.wso2.com:8280',
+      https_endpoint                        => 'https://gw.wso2.com:8243',
+      websub_event_receiver_http_endpoint   => 'http://gw.wso2.com:9021',
+      websub_event_receiver_https_endpoint  => 'https://gw.wso2.com:8021'
+    }
+  ]
+
+  # TM endpoints
+  $throttle_decision_endpoints = '"tcp://tm.wso2.com:5672"'
+  $throttle_service_url        = 'https://tm.wso2.com:${mgt.transport.https.port}${carbon.context}services/'
+  $throttling_url_group = [
+    {
+      traffic_manager_urls      => '"tcp://tm.wso2.com:9611"',
+      traffic_manager_auth_urls => '"ssl://tm.wso2.com:9711"'
+    }
+  ]
+
+  $event_listener_notification_endpoint = 'https://cp.wso2.com:${mgt.transport.https.port}/internal/data/v1/notify'
 }

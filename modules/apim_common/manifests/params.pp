@@ -182,6 +182,8 @@ class apim_common::params {
 
   $event_listener_notification_endpoint = 'https://localhost:${mgt.transport.https.port}/internal/data/v1/notify'
 
+  $eventhub_service_host = 'localhost'
+
   $token_exchange_enable = true
   $token_exchange_allow_refresh_tokens = true
   $token_exchange_iat_validity_period = '1h'

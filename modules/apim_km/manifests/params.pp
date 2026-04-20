@@ -20,25 +20,37 @@ class apim_km::params inherits apim_common::params {
 
   $start_script_template = 'bin/key-manager.sh'
   $jvmxms = '256m'
-  $jvmxmx = '1024m'
+  $jvmxmx = '2048m'
 
   $template_list = [
     'repository/conf/deployment.toml',
   ]
 
-  # Define file list
-  $file_list = []
+  $file_list = [
+    'repository/components/lib/postgresql-42.7.3.jar'
+  ]
 
-  # Define remove file list
   $file_removelist = []
 
-  # ----- Carbon.xml config params -----
   $ports_offset = 0
-  /*
-     Host name or IP address of the machine hosting this server
-     e.g. www.wso2.org, 192.168.1.10
-     This is will become part of the End Point Reference of the
-     services deployed on this server instance.
-  */
-  $hostname = 'localhost'
+  $hostname = 'km.wso2.com'
+
+  # PostgreSQL database config
+  $wso2am_db_url              = 'jdbc:postgresql://db.wso2.com:5432/apimgt'
+  $wso2am_db_username         = 'apimuser'
+  $wso2am_db_password         = 'apimpassword'
+  $wso2am_db_type             = 'postgre'
+  $wso2am_db_validation_query = 'SELECT 1'
+
+  $wso2shared_db_url              = 'jdbc:postgresql://db.wso2.com:5432/shareddb'
+  $wso2shared_db_username         = 'apimuser'
+  $wso2shared_db_password         = 'apimpassword'
+  $wso2shared_db_type             = 'postgre'
+  $wso2shared_db_validation_query = 'SELECT 1'
+
+  # CP event hub host
+  $eventhub_service_host = 'cp.wso2.com'
+
+  # Notification endpoint on CP
+  $event_listener_notification_endpoint = 'https://cp.wso2.com:${mgt.transport.https.port}/internal/data/v1/notify'
 }

@@ -1,104 +1,129 @@
-# Running This Setup on Azure VMs
+# Azure Guide: Distributed WSO2 API Manager with PostgreSQL
 
-## 1. Decide Your Deployment Pattern
+This guide sets up a distributed deployment on Azure. The puppet-master and db VMs from the all-in-one setup are reused.
 
-For a simple distributed setup you'll need these VMs:
+| VM | Role | Puppet Profile | Private IP |
+|---|---|---|---|
+| `puppet-master` | Puppet Master | (not an agent) | 10.6.0.4 |
+| `db` | PostgreSQL database | (not an agent) | 10.6.0.6 |
+| `apim-cp` | Control Plane | `apim_control_plane` | 10.6.0.7 |
+| `apim-gw` | Gateway | `apim_gateway` | 10.6.0.8 |
+| `apim-tm` | Traffic Manager | `apim_tm` | 10.6.0.9 |
+| `apim-km` | Key Manager | `apim_km` | 10.6.0.10 |
 
-| VM | Role | Puppet Profile |
+---
+
+## 1. Create the Azure VMs
+
+Add the new APIM nodes to the existing resource group and VNet:
+
+```bash
+for NAME in apim-cp apim-gw apim-tm apim-km; do
+  az vm create \
+    --resource-group apim-rg \
+    --name $NAME \
+    --image Ubuntu2204 \
+    --vnet-name apim-vnet \
+    --subnet apim-subnet \
+    --admin-username azureuser \
+    --generate-ssh-keys \
+    --size Standard_D4s_v3
+done
+```
+
+Get the private IPs:
+```bash
+az vm list-ip-addresses --resource-group apim-rg --output table
+```
+
+---
+
+## 2. Open Required Ports (NSG)
+
+| Port | VM | Purpose |
 |---|---|---|
-| `puppet-master` | Puppet Master | (not an agent) |
-| `apim-cp` | Control Plane | `apim_control_plane` |
-| `apim-gw` | Gateway | `apim_gateway` |
-| `apim-tm` | Traffic Manager | `apim_tm` |
-| `apim-km` | Key Manager | `apim_km` |
-| `db-server` | MySQL (external DB) | (not an agent) |
-
-For a simple all-in-one test, you only need `puppet-master` + one `apim` VM.
-
----
-
-## 2. Create the Azure VMs
-
-Create all VMs in the **same VNet and subnet** so they can talk to each other by private IP.
-
-Recommended specs per VM:
-- **Puppet Master**: Standard_B2s (2 vCPU, 4GB RAM), Ubuntu 22.04
-- **APIM nodes**: Standard_D4s_v3 (4 vCPU, 16GB RAM), Ubuntu 22.04
-- **DB server**: Standard_D2s_v3, Ubuntu 22.04
+| 9443 | apim-cp | Control Plane UI (Publisher, DevPortal, Admin) — public |
+| 8243 | apim-gw | HTTPS API traffic — public |
+| 8280 | apim-gw | HTTP API traffic — public |
+| 8140 | puppet-master | Puppet agent communication — internal only |
+| 5432 | db | PostgreSQL — internal only |
+| 5672 | apim-tm | JMS (TM ↔ Gateway) — internal only |
+| 9611/9711 | apim-tm | Thrift (stats publishing) — internal only |
 
 ```bash
-az group create --name apim-rg --location eastus
-
-az network vnet create \
-  --resource-group apim-rg \
-  --name apim-vnet \
-  --address-prefix 10.0.0.0/16 \
-  --subnet-name apim-subnet \
-  --subnet-prefix 10.0.1.0/24
-
-az vm create \
-  --resource-group apim-rg \
-  --name puppet-master \
-  --image Ubuntu2204 \
-  --vnet-name apim-vnet \
-  --subnet apim-subnet \
-  --admin-username azureuser \
-  --generate-ssh-keys \
-  --size Standard_B2s
-```
-
-Repeat `az vm create` for each node (`apim-cp`, `apim-gw`, `apim-tm`, `apim-km`, `db-server`).
-
----
-
-## 3. Configure DNS / Hostnames
-
-Edit `/etc/hosts` on **every VM** with each node's private IP:
-
-```
-10.0.1.10  puppet puppet-master.apim.local
-10.0.1.11  apim-cp cp.wso2.com
-10.0.1.12  apim-gw gw.wso2.com
-10.0.1.13  apim-tm tm.wso2.com
-10.0.1.14  apim-km km.wso2.com
-10.0.1.20  db-server db.wso2.com
+az vm open-ports --resource-group apim-rg --name apim-cp --ports 9443
+az vm open-ports --resource-group apim-rg --name apim-gw --ports 8243,8280
 ```
 
 ---
 
-## 4. Open Required Ports (Network Security Group)
+## 3. Configure /etc/hosts on All VMs
 
-Allow all traffic within the VNet, then add specific inbound rules for external access:
-
-| Port | Protocol | Purpose |
-|---|---|---|
-| 8243 | HTTPS | Gateway (API traffic) |
-| 9443 | HTTPS | Control Plane management UI |
-| 8140 | TCP | Puppet Master ← Agents (internal only) |
-| 5672 | TCP | JMS (TM ↔ Gateway) — internal only |
-| 9611/9711 | TCP | Thrift (TM stats) — internal only |
-| 3306 | TCP | MySQL — internal only |
+SSH into **every VM** (including puppet-master and db) and add all node entries. Replace IPs with your actual private IPs:
 
 ```bash
-az network nsg rule create \
-  --resource-group apim-rg \
-  --nsg-name puppet-master-nsg \
-  --name allow-puppet \
-  --priority 100 \
-  --source-address-prefixes 10.0.1.0/24 \
-  --destination-port-ranges 8140 \
-  --protocol Tcp
+sudo tee -a /etc/hosts << 'EOF'
+10.6.0.4   puppet puppet-master.apim.local
+10.6.0.6   db db.wso2.com
+10.6.0.7   apim-cp cp.wso2.com
+10.6.0.8   apim-gw gw.wso2.com
+10.6.0.9   apim-tm tm.wso2.com
+10.6.0.10  apim-km km.wso2.com
+EOF
 ```
 
 ---
 
-## 5. Install Puppet Server on the Master
+## 4. Initialize Databases on the DB VM
 
-SSH into `puppet-master`:
+The `apimgt` and `shareddb` databases from the all-in-one setup can be reused. You only need to add the KM database if it isn't already there. Skip this step if the databases are already set up.
+
+If starting fresh on the DB VM:
 
 ```bash
-wget https://apt.puppet.com/puppet8-release-jammy.deb
-sudo dpkg -i puppet8-release-jammy.deb
+sudo apt update
+sudo apt install postgresql postgresql-contrib unzip -y
+
+sudo sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '*'/" \
+  /etc/postgresql/*/main/postgresql.conf
+
+echo "host all all 10.6.0.0/24 md5" | sudo tee -a \
+  /etc/postgresql/*/main/pg_hba.conf
+
+sudo systemctl restart postgresql
+
+sudo -u postgres psql << 'EOF'
+CREATE USER apimuser WITH PASSWORD 'apimpassword';
+CREATE DATABASE apimgt;
+CREATE DATABASE shareddb;
+GRANT ALL PRIVILEGES ON DATABASE apimgt TO apimuser;
+GRANT ALL PRIVILEGES ON DATABASE shareddb TO apimuser;
+\c apimgt
+GRANT ALL ON SCHEMA public TO apimuser;
+\c shareddb
+GRANT ALL ON SCHEMA public TO apimuser;
+EOF
+
+# Initialize schemas
+cd ~
+wget -O wso2am-4.6.0.zip https://github.com/wso2/product-apim/releases/download/v4.6.0/wso2am-4.6.0.zip
+unzip wso2am-4.6.0.zip
+psql -h localhost -U apimuser -d apimgt -f wso2am-4.6.0/dbscripts/apimgt/postgresql.sql
+psql -h localhost -U apimuser -d shareddb -f wso2am-4.6.0/dbscripts/postgresql.sql
+rm -rf wso2am-4.6.0 wso2am-4.6.0.zip
+```
+
+---
+
+## 5. Set Up Puppet Master
+
+If reusing the puppet-master from the all-in-one setup, skip the install and go straight to cloning the repo.
+
+**Install Puppet Server (skip if already done):**
+
+```bash
+wget -O puppet8.deb https://apt.puppet.com/puppet8-release-jammy.deb
+sudo dpkg -i puppet8.deb
 sudo apt update
 sudo apt install puppetserver -y
 
@@ -111,122 +136,202 @@ sudo systemctl enable puppetserver
 sudo systemctl start puppetserver
 ```
 
----
-
-## 6. Clone This Repo onto the Puppet Master
+**Clone the repo:**
 
 ```bash
 cd /etc/puppetlabs/code/environments/
-sudo git clone --single-branch --branch 4.6.x https://github.com/wso2/puppet-apim.git production
+sudo rm -rf production
+sudo git clone --single-branch --branch 4.6.test https://github.com/IsuruGunarathne/puppet-apim.git production
 ```
 
-Place the product packs:
+**Update to JDK 21:**
 
 ```bash
-sudo cp wso2am-4.6.0.zip \
-  /etc/puppetlabs/code/environments/production/modules/apim_common/files/packs/
+sudo sed -i "s/amazon-corretto-17.0.6.10.1-linux-x64/amazon-corretto-21.0.5.11.1-linux-x64/" \
+  /etc/puppetlabs/code/environments/production/modules/apim_common/manifests/params.pp
+```
 
-sudo cp amazon-corretto-17.0.6.10.1-linux-x64.tar.gz \
-  /etc/puppetlabs/code/environments/production/modules/apim_common/files/jdk/
+**Download product pack, JDK, and JDBC driver:**
+
+```bash
+# WSO2 API Manager pack
+sudo wget -O /etc/puppetlabs/code/environments/production/modules/apim_common/files/packs/wso2am-4.6.0.zip \
+  https://github.com/wso2/product-apim/releases/download/v4.6.0/wso2am-4.6.0.zip
+
+# Amazon Corretto 21 (JDK)
+sudo wget -O /etc/puppetlabs/code/environments/production/modules/apim_common/files/jdk/amazon-corretto-21.0.5.11.1-linux-x64.tar.gz \
+  https://corretto.aws/downloads/resources/21.0.5.11.1/amazon-corretto-21.0.5.11.1-linux-x64.tar.gz
+
+# PostgreSQL JDBC driver (add to each profile module that connects to the DB)
+for MODULE in apim_control_plane apim_gateway apim_tm apim_km; do
+  sudo mkdir -p /etc/puppetlabs/code/environments/production/modules/$MODULE/files/repository/components/lib/
+  sudo wget -O /etc/puppetlabs/code/environments/production/modules/$MODULE/files/repository/components/lib/postgresql-42.7.3.jar \
+    https://jdbc.postgresql.org/download/postgresql-42.7.3.jar
+done
 ```
 
 ---
 
-## 7. Configure params.pp for Each Profile
+## 6. Configure params.pp for Each Profile
 
-Edit each module's `params.pp` to point to your actual Azure VM hostnames. For example, `modules/apim_control_plane/manifests/params.pp`:
+Edit each module's `params.pp` under `/etc/puppetlabs/code/environments/production/modules/`. Use `docs/samples/distributed_km_seperated/` as a reference.
+
+Common settings to update in every profile:
 
 ```puppet
-$hostname = 'cp.wso2.com'
+$jvmxms = '256m'
+$jvmxmx = '2048m'
 
-$wso2am_db_url      = 'jdbc:mysql://db.wso2.com:3306/apimgt'
-$wso2am_db_username = 'apimuser'
-$wso2am_db_password = 'yourpassword'
-$wso2am_db_type     = 'mysql'
+$file_list = [
+  'repository/components/lib/postgresql-42.7.3.jar'
+]
 
-$wso2shared_db_url  = 'jdbc:mysql://db.wso2.com:3306/shareddb'
+$wso2am_db_url              = 'jdbc:postgresql://db.wso2.com:5432/apimgt'
+$wso2am_db_username         = 'apimuser'
+$wso2am_db_password         = 'apimpassword'
+$wso2am_db_type             = 'postgre'
+$wso2am_db_validation_query = 'SELECT 1'
 
-$throttle_decision_endpoints = '"tcp://tm.wso2.com:5672"'
+$wso2shared_db_url              = 'jdbc:postgresql://db.wso2.com:5432/shareddb'
+$wso2shared_db_username         = 'apimuser'
+$wso2shared_db_password         = 'apimpassword'
+$wso2shared_db_type             = 'postgre'
+$wso2shared_db_validation_query = 'SELECT 1'
 ```
 
-Use `docs/samples/distributed_km_seperated/` as a reference for all profiles.
+Profile-specific hostname settings:
+
+| Profile | `$hostname` |
+|---|---|
+| `apim_control_plane` | `cp.wso2.com` |
+| `apim_gateway` | `gw.wso2.com` |
+| `apim_tm` | `tm.wso2.com` |
+| `apim_km` | `km.wso2.com` |
+
+In `apim_control_plane/manifests/params.pp`, also update:
+```puppet
+$throttle_decision_endpoints = '"tcp://tm.wso2.com:5672"'
+$throttling_url_group = [
+  {
+    traffic_manager_urls      => '"tcp://tm.wso2.com:9611"',
+    traffic_manager_auth_urls => '"ssl://tm.wso2.com:9711"'
+  }
+]
+```
+
+In `apim_gateway/manifests/params.pp`, also update:
+```puppet
+$key_manager_server_url = 'https://km.wso2.com:${mgt.transport.https.port}${carbon.context}services/'
+```
 
 ---
 
-## 8. Install Puppet Agent on Each Node
+## 7. Install Puppet Agent on Each Node
 
-SSH into each APIM VM and run:
+SSH into each APIM VM and run (replacing `<certname>` with the node-specific value from the table below):
 
 ```bash
-wget https://apt.puppet.com/puppet8-release-jammy.deb
-sudo dpkg -i puppet8-release-jammy.deb
+wget -O puppet8.deb https://apt.puppet.com/puppet8-release-jammy.deb
+sudo dpkg -i puppet8.deb
 sudo apt update
 sudo apt install puppet-agent -y
 
-sudo bash -c 'cat >> /etc/puppetlabs/puppet/puppet.conf << EOF
+sudo bash -c "cat >> /etc/puppetlabs/puppet/puppet.conf << EOF
 [main]
-certname = apim-cp.apim.local
+certname = <certname>
 server = puppet-master.apim.local
 [agent]
 environment = production
-EOF'
+EOF"
 ```
+
+| VM | `certname` |
+|---|---|
+| `apim-cp` | `apim-cp.apim.local` |
+| `apim-gw` | `apim-gw.apim.local` |
+| `apim-tm` | `apim-tm.apim.local` |
+| `apim-km` | `apim-km.apim.local` |
 
 ---
 
-## 9. Sign Certificates and Apply
+## 8. Sign Certificates and Apply
 
-On each agent, request a cert:
+On each agent VM, set the profile fact first, then request a cert:
 
 ```bash
-sudo /opt/puppetlabs/bin/puppet agent --test --waitforcert 60
+# On apim-cp:
+sudo mkdir -p /etc/puppetlabs/facter/facts.d
+echo "profile=apim_control_plane" | sudo tee /etc/puppetlabs/facter/facts.d/profile.txt
+sudo /opt/puppetlabs/bin/puppet agent --test --waitforcert 300
+
+# On apim-gw:
+sudo mkdir -p /etc/puppetlabs/facter/facts.d
+echo "profile=apim_gateway" | sudo tee /etc/puppetlabs/facter/facts.d/profile.txt
+sudo /opt/puppetlabs/bin/puppet agent --test --waitforcert 300
+
+# On apim-tm:
+sudo mkdir -p /etc/puppetlabs/facter/facts.d
+echo "profile=apim_tm" | sudo tee /etc/puppetlabs/facter/facts.d/profile.txt
+sudo /opt/puppetlabs/bin/puppet agent --test --waitforcert 300
+
+# On apim-km:
+sudo mkdir -p /etc/puppetlabs/facter/facts.d
+echo "profile=apim_km" | sudo tee /etc/puppetlabs/facter/facts.d/profile.txt
+sudo /opt/puppetlabs/bin/puppet agent --test --waitforcert 300
 ```
 
-On the Puppet Master, sign them all:
+On the `puppet-master`, sign all certs (within 5 minutes):
 
 ```bash
 sudo /opt/puppetlabs/bin/puppetserver ca sign --all
 ```
 
-Back on each agent, set the profile fact and apply:
+Each agent will automatically apply its catalog once signed.
 
-```bash
-# Control Plane VM:
-echo "profile=apim_control_plane" | sudo tee /etc/puppetlabs/facter/facts.d/profile.txt
-sudo /opt/puppetlabs/bin/puppet agent -vt
-
-# Gateway VM:
-echo "profile=apim_gateway" | sudo tee /etc/puppetlabs/facter/facts.d/profile.txt
-sudo /opt/puppetlabs/bin/puppet agent -vt
-
-# Traffic Manager VM:
-echo "profile=apim_tm" | sudo tee /etc/puppetlabs/facter/facts.d/profile.txt
-sudo /opt/puppetlabs/bin/puppet agent -vt
-
-# Key Manager VM:
-echo "profile=apim_km" | sudo tee /etc/puppetlabs/facter/facts.d/profile.txt
-sudo /opt/puppetlabs/bin/puppet agent -vt
-```
+**Start order matters**: TM → CP → Gateway → KM.
 
 ---
 
-## 10. Verify
+## 9. Verify
 
 ```bash
-# Check service status on any agent
+# Control Plane
 sudo systemctl status wso2apim_control_plane
-
-# Check logs
 tail -f /mnt/apim_control_plane/wso2am-acp-4.6.0/repository/logs/wso2carbon.log
+
+# Gateway
+sudo systemctl status wso2apim_gateway
+tail -f /mnt/apim_gateway/wso2am-universal-gw-4.6.0/repository/logs/wso2carbon.log
+
+# Traffic Manager
+sudo systemctl status wso2apim_tm
+tail -f /mnt/apim_tm/wso2am-tm-4.6.0/repository/logs/wso2carbon.log
+
+# Key Manager
+sudo systemctl status wso2apim_km
+tail -f /mnt/apim_km/wso2am-km-4.6.0/repository/logs/wso2carbon.log
 ```
 
-Access the Control Plane UI at `https://<apim-cp-public-ip>:9443/publisher`.
+On **your local machine**, add the public IPs to `/etc/hosts`:
+
+```
+<apim-cp-public-ip>  cp.wso2.com
+<apim-gw-public-ip>  gw.wso2.com
+```
+
+Then access:
+- **Publisher**: `https://cp.wso2.com:9443/publisher`
+- **Developer Portal**: `https://cp.wso2.com:9443/devportal`
+- **Admin**: `https://cp.wso2.com:9443/admin`
+
+Default credentials: `admin` / `admin`
 
 ---
 
 ## Key Things to Get Right
 
-- **All VMs must resolve each other's hostnames** — get `/etc/hosts` right before running Puppet.
-- **The Puppet Master hostname must match** what agents have in `puppet.conf server =`.
-- **DB must be provisioned first** — create the `apimgt` and `shareddb` MySQL databases and grant the user permissions before running the APIM agents.
-- **Start order matters**: bring up TM → CP → Gateway → KM.
+- **`/etc/hosts` must be set on all VMs** before running Puppet — WSO2 embeds hostnames in internal URLs.
+- **DB must be ready first** — WSO2 initializes its schema on first startup.
+- **Set the profile fact before requesting the cert** — otherwise Puppet tries to declare an empty class and fails.
+- **WSO2 uses `postgre` (not `postgresql`) as the `db_type` value** in `deployment.toml`.
+- **Start order matters**: TM → CP → Gateway → KM.
