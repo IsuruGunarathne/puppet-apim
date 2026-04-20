@@ -154,9 +154,15 @@ sudo sed -i "s/amazon-corretto-17.0.6.10.1-linux-x64/amazon-corretto-21.0.5.11.1
 **Download product pack, JDK, and JDBC driver:**
 
 ```bash
-# WSO2 API Manager pack
-sudo wget -O /etc/puppetlabs/code/environments/production/modules/apim_common/files/packs/wso2am-4.6.0.zip \
-  https://github.com/wso2/product-apim/releases/download/v4.6.0/wso2am-4.6.0.zip
+# WSO2 packs (each profile needs its own pack; KM reuses the ACP pack)
+sudo wget -O /etc/puppetlabs/code/environments/production/modules/apim_common/files/packs/wso2am-acp-4.6.0.zip \
+  https://github.com/wso2/product-apim/releases/download/v4.6.0/wso2am-acp-4.6.0.zip
+
+sudo wget -O /etc/puppetlabs/code/environments/production/modules/apim_common/files/packs/wso2am-universal-gw-4.6.0.zip \
+  https://github.com/wso2/product-apim/releases/download/v4.6.0/wso2am-universal-gw-4.6.0.zip
+
+sudo wget -O /etc/puppetlabs/code/environments/production/modules/apim_common/files/packs/wso2am-tm-4.6.0.zip \
+  https://github.com/wso2/product-apim/releases/download/v4.6.0/wso2am-tm-4.6.0.zip
 
 # Amazon Corretto 21 (JDK)
 sudo wget -O /etc/puppetlabs/code/environments/production/modules/apim_common/files/jdk/amazon-corretto-21.0.5.11.1-linux-x64.tar.gz \
@@ -286,7 +292,11 @@ On the `puppet-master`, sign all certs (within 5 minutes):
 sudo /opt/puppetlabs/bin/puppetserver ca sign --all
 ```
 
-Each agent will automatically apply its catalog once signed.
+Once signed, the agents will apply the catalog automatically. If the `--waitforcert` window expired before signing, re-run manually on each agent:
+
+```bash
+sudo /opt/puppetlabs/bin/puppet agent -vt
+```
 
 **Start order matters**: TM → CP → Gateway → KM.
 
