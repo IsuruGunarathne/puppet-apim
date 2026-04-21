@@ -144,13 +144,6 @@ sudo rm -rf production
 sudo git clone --single-branch --branch 4.7.test https://github.com/IsuruGunarathne/puppet-apim.git production
 ```
 
-**Update to JDK 21:**
-
-```bash
-sudo sed -i "s/amazon-corretto-17.0.6.10.1-linux-x64/amazon-corretto-21.0.5.11.1-linux-x64/" \
-  /etc/puppetlabs/code/environments/production/modules/apim_common/manifests/params.pp
-```
-
 **Download product pack, JDK, and JDBC driver:**
 
 ```bash
