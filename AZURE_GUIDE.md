@@ -322,6 +322,18 @@ sudo systemctl status wso2apim_km
 tail -f /mnt/apim_km/wso2am-km-4.6.0/repository/logs/wso2carbon.log
 ```
 
+**Verify the Gateway's event hub connection** (on `apim-gw` after all services are up):
+
+```bash
+grep -i "keyManager\|5672" /mnt/apim_gateway/wso2am-universal-gw-4.6.0/repository/logs/wso2carbon.log | tail -5
+```
+
+You should see `Connection successfully created … Host: cp.wso2.com | Port: 5672` and `Started to listen on destination : keyManager`. If you see timeout errors instead, check that port 5672 is reachable from the Gateway:
+
+```bash
+nc -zv cp.wso2.com 5672
+```
+
 On **your local machine**, add the public IPs to `/etc/hosts`:
 
 ```
@@ -350,3 +362,4 @@ Default credentials: `admin` / `admin`
 - **Start order matters**: TM → CP → Gateway → KM.
 - **If you get "Registered callback does not match" on login**, the CP started with the wrong hostname and registered OAuth apps with stale callback URLs in the DB. Fix: stop all services, drop and recreate the databases, re-run the schema scripts, then restart. The CP will re-register the OAuth apps with the correct hostname on startup.
 - **Duplicate `/etc/hosts` entries on your local machine** will cause traffic to go to the wrong IP — macOS uses the first matching entry. Each hostname must appear only once.
+- **Bearer tokens require the Gateway to subscribe to the CP's event hub** (JMS on `cp.wso2.com:5672`). If the Gateway can't reach port 5672 on the CP, it won't receive key manager configurations and all OAuth Bearer token invocations will return 900901 "Invalid Credentials". Internal-Key invocations are unaffected. Verify with `nc -zv cp.wso2.com 5672` from the Gateway VM.
