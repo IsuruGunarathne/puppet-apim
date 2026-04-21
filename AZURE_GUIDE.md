@@ -76,23 +76,35 @@ EOF
 
 ## 4. Initialize Databases on the DB VM
 
-The `apimgt` and `shareddb` databases from the all-in-one setup can be reused. You only need to add the KM database if it isn't already there. Skip this step if the databases are already set up.
+Safe to re-run — drops and recreates the databases from scratch each time.
 
-If starting fresh on the DB VM:
+> **Before re-running on an existing setup**: stop all APIM services first so no active connections block the drop:
+> ```bash
+> # On apim-cp, apim-gw, apim-tm, apim-km:
+> sudo systemctl stop wso2apim_control_plane wso2apim_gateway wso2apim_tm wso2apim_km 2>/dev/null; true
+> ```
 
 ```bash
 sudo apt update
 sudo apt install postgresql postgresql-contrib unzip -y
 
+# Allow remote connections (idempotent — sed only changes the line if still commented out)
 sudo sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '*'/" \
   /etc/postgresql/*/main/postgresql.conf
 
-echo "host all all 10.6.0.0/24 md5" | sudo tee -a \
-  /etc/postgresql/*/main/pg_hba.conf
+# Add subnet access rule only if not already present
+grep -qF "10.6.0.0/24" /etc/postgresql/*/main/pg_hba.conf || \
+  echo "host all all 10.6.0.0/24 md5" | sudo tee -a /etc/postgresql/*/main/pg_hba.conf
 
 sudo systemctl restart postgresql
 
+# Drop and recreate databases (safe to re-run)
 sudo -u postgres psql << 'EOF'
+SELECT pg_terminate_backend(pid) FROM pg_stat_activity
+  WHERE datname IN ('apimgt','shareddb') AND pid <> pg_backend_pid();
+DROP DATABASE IF EXISTS apimgt;
+DROP DATABASE IF EXISTS shareddb;
+DROP USER IF EXISTS apimuser;
 CREATE USER apimuser WITH PASSWORD 'apimpassword';
 CREATE DATABASE apimgt;
 CREATE DATABASE shareddb;
@@ -237,7 +249,7 @@ sudo apt install puppet-agent -y
 
 sudo bash -c "cat >> /etc/puppetlabs/puppet/puppet.conf << EOF
 [main]
-certname = <certname>
+certname = apim-km.apim.local
 server = puppet-master.apim.local
 [agent]
 environment = production
