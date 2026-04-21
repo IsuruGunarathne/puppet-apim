@@ -120,8 +120,8 @@ EOF
 cd ~
 wget -O wso2am-4.7.0.zip https://github.com/wso2/product-apim/releases/download/v4.7.0-rc/wso2am-4.7.0-rc.zip
 unzip wso2am-4.7.0.zip
-psql -h localhost -U apimuser -d apimgt -f wso2am-4.7.0/dbscripts/apimgt/postgresql.sql
-psql -h localhost -U apimuser -d shareddb -f wso2am-4.7.0/dbscripts/postgresql.sql
+PGPASSWORD=apimpassword psql -h localhost -U apimuser -d apimgt -f wso2am-4.7.0/dbscripts/apimgt/postgresql.sql
+PGPASSWORD=apimpassword psql -h localhost -U apimuser -d shareddb -f wso2am-4.7.0/dbscripts/postgresql.sql
 rm -rf wso2am-4.7.0 wso2am-4.7.0.zip
 ```
 
@@ -249,7 +249,7 @@ sudo apt install puppet-agent -y
 
 sudo bash -c "cat >> /etc/puppetlabs/puppet/puppet.conf << EOF
 [main]
-certname = apim-km.apim.local
+certname = <certname>
 server = puppet-master.apim.local
 [agent]
 environment = production
