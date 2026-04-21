@@ -143,17 +143,17 @@ Initialize the WSO2 schema:
 
 ```bash
 cd ~
-wget -O wso2am-4.6.0.zip https://github.com/wso2/product-apim/releases/download/v4.6.0/wso2am-4.6.0.zip
-unzip wso2am-4.6.0.zip
+wget -O wso2am-4.7.0-rc.zip https://github.com/wso2/product-apim/releases/download/v4.7.0-rc/wso2am-4.7.0-rc.zip
+unzip wso2am-4.7.0-rc.zip
 
 # apimgt DB — API Manager specific tables
-psql -h localhost -U apimuser -d apimgt -f wso2am-4.6.0/dbscripts/apimgt/postgresql.sql
+psql -h localhost -U apimuser -d apimgt -f wso2am-4.7.0-rc/dbscripts/apimgt/postgresql.sql
 
 # shareddb — shared identity/registry tables
-psql -h localhost -U apimuser -d shareddb -f wso2am-4.6.0/dbscripts/postgresql.sql
+psql -h localhost -U apimuser -d shareddb -f wso2am-4.7.0-rc/dbscripts/postgresql.sql
 
 # Clean up
-rm -rf wso2am-4.6.0 wso2am-4.6.0.zip
+rm -rf wso2am-4.7.0-rc wso2am-4.7.0-rc.zip
 ```
 
 ---
@@ -184,7 +184,7 @@ sudo systemctl start puppetserver
 ```bash
 cd /etc/puppetlabs/code/environments/
 sudo rm -rf production
-sudo git clone --single-branch --branch 4.6.test https://github.com/IsuruGunarathne/puppet-apim.git production
+sudo git clone --single-branch --branch 4.7.test https://github.com/IsuruGunarathne/puppet-apim.git production
 ```
 
 Update `apim_common/manifests/params.pp` to use JDK 21:
@@ -198,8 +198,8 @@ Download the product pack, JDK, and PostgreSQL JDBC driver:
 
 ```bash
 # WSO2 API Manager pack
-sudo wget -O /etc/puppetlabs/code/environments/production/modules/apim_common/files/packs/wso2am-4.6.0.zip \
-  https://github.com/wso2/product-apim/releases/download/v4.6.0/wso2am-4.6.0.zip
+sudo wget -O /etc/puppetlabs/code/environments/production/modules/apim_common/files/packs/wso2am-4.7.0-rc.zip \
+  https://github.com/wso2/product-apim/releases/download/v4.7.0-rc/wso2am-4.7.0-rc.zip
 
 # Amazon Corretto 21 (JDK)
 sudo wget -O /etc/puppetlabs/code/environments/production/modules/apim_common/files/jdk/amazon-corretto-21.0.5.11.1-linux-x64.tar.gz \
@@ -304,7 +304,7 @@ The `apim` VM will automatically apply the catalog once the cert is signed. Pupp
 sudo systemctl status wso2apim
 
 # Tail the logs
-tail -f /mnt/apim/wso2am-4.6.0/repository/logs/wso2carbon.log
+tail -f /mnt/apim/wso2am-4.7.0-rc/repository/logs/wso2carbon.log
 ```
 
 On **your local machine**, add the APIM public IP to `/etc/hosts`:
