@@ -92,6 +92,10 @@ sudo apt install postgresql postgresql-contrib unzip -y
 sudo sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '*'/" \
   /etc/postgresql/*/main/postgresql.conf
 
+# Increase max_connections — 4 WSO2 services each open multiple pools; default 100 is not enough
+sudo sed -i "s/^max_connections = .*/max_connections = 400/" \
+  /etc/postgresql/*/main/postgresql.conf
+
 # Add subnet access rule only if not already present
 grep -qF "10.6.0.0/24" /etc/postgresql/*/main/pg_hba.conf || \
   echo "host all all 10.6.0.0/24 md5" | sudo tee -a /etc/postgresql/*/main/pg_hba.conf
