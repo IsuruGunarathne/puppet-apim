@@ -106,11 +106,11 @@ EOF
 
 # Initialize schemas
 cd ~
-wget -O wso2am-4.7.0-rc.zip https://github.com/wso2/product-apim/releases/download/v4.7.0-rc/wso2am-4.7.0-rc.zip
-unzip wso2am-4.7.0-rc.zip
-psql -h localhost -U apimuser -d apimgt -f wso2am-4.7.0-rc/dbscripts/apimgt/postgresql.sql
-psql -h localhost -U apimuser -d shareddb -f wso2am-4.7.0-rc/dbscripts/postgresql.sql
-rm -rf wso2am-4.7.0-rc wso2am-4.7.0-rc.zip
+wget -O wso2am-4.7.0.zip https://github.com/wso2/product-apim/releases/download/v4.7.0-rc/wso2am-4.7.0-rc.zip
+unzip wso2am-4.7.0.zip
+psql -h localhost -U apimuser -d apimgt -f wso2am-4.7.0/dbscripts/apimgt/postgresql.sql
+psql -h localhost -U apimuser -d shareddb -f wso2am-4.7.0/dbscripts/postgresql.sql
+rm -rf wso2am-4.7.0 wso2am-4.7.0.zip
 ```
 
 ---
@@ -155,13 +155,13 @@ sudo sed -i "s/amazon-corretto-17.0.6.10.1-linux-x64/amazon-corretto-21.0.5.11.1
 
 ```bash
 # WSO2 packs (each profile needs its own pack; KM reuses the ACP pack)
-sudo wget -O /etc/puppetlabs/code/environments/production/modules/apim_common/files/packs/wso2am-acp-4.7.0-rc.zip \
+sudo wget -O /etc/puppetlabs/code/environments/production/modules/apim_common/files/packs/wso2am-acp-4.7.0.zip \
   https://github.com/wso2/product-apim/releases/download/v4.7.0-rc/wso2am-acp-4.7.0-rc.zip
 
-sudo wget -O /etc/puppetlabs/code/environments/production/modules/apim_common/files/packs/wso2am-universal-gw-4.7.0-rc.zip \
+sudo wget -O /etc/puppetlabs/code/environments/production/modules/apim_common/files/packs/wso2am-universal-gw-4.7.0.zip \
   https://github.com/wso2/product-apim/releases/download/v4.7.0-rc/wso2am-universal-gw-4.7.0-rc.zip
 
-sudo wget -O /etc/puppetlabs/code/environments/production/modules/apim_common/files/packs/wso2am-tm-4.7.0-rc.zip \
+sudo wget -O /etc/puppetlabs/code/environments/production/modules/apim_common/files/packs/wso2am-tm-4.7.0.zip \
   https://github.com/wso2/product-apim/releases/download/v4.7.0-rc/wso2am-tm-4.7.0-rc.zip
 
 # Amazon Corretto 21 (JDK)
@@ -307,25 +307,25 @@ sudo /opt/puppetlabs/bin/puppet agent -vt
 ```bash
 # Control Plane
 sudo systemctl status wso2apim_control_plane
-tail -f /mnt/apim_control_plane/wso2am-acp-4.7.0-rc/repository/logs/wso2carbon.log
+tail -f /mnt/apim_control_plane/wso2am-acp-4.7.0/repository/logs/wso2carbon.log
 
 # Gateway
 sudo systemctl status wso2apim_gateway
-tail -f /mnt/apim_gateway/wso2am-universal-gw-4.7.0-rc/repository/logs/wso2carbon.log
+tail -f /mnt/apim_gateway/wso2am-universal-gw-4.7.0/repository/logs/wso2carbon.log
 
 # Traffic Manager
 sudo systemctl status wso2apim_tm
-tail -f /mnt/apim_tm/wso2am-tm-4.7.0-rc/repository/logs/wso2carbon.log
+tail -f /mnt/apim_tm/wso2am-tm-4.7.0/repository/logs/wso2carbon.log
 
 # Key Manager
 sudo systemctl status wso2apim_km
-tail -f /mnt/apim_km/wso2am-km-4.7.0-rc/repository/logs/wso2carbon.log
+tail -f /mnt/apim_km/wso2am-km-4.7.0/repository/logs/wso2carbon.log
 ```
 
 **Verify the Gateway's event hub connection** (on `apim-gw` after all services are up):
 
 ```bash
-grep -i "keyManager\|5672" /mnt/apim_gateway/wso2am-universal-gw-4.7.0-rc/repository/logs/wso2carbon.log | tail -5
+grep -i "keyManager\|5672" /mnt/apim_gateway/wso2am-universal-gw-4.7.0/repository/logs/wso2carbon.log | tail -5
 ```
 
 You should see `Connection successfully created … Host: cp.wso2.com | Port: 5672` and `Started to listen on destination : keyManager`. If you see timeout errors instead, check that port 5672 is reachable from the Gateway:
