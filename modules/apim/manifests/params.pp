@@ -26,8 +26,9 @@ class apim::params inherits apim_common::params {
     'repository/conf/deployment.toml'
   ]
 
-  # Define file list
-  $file_list = []
+  $file_list = [
+    'repository/components/lib/postgresql-42.7.3.jar'
+  ]
 
   # Define remove file list
   $file_removelist = []

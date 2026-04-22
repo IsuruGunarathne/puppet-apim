@@ -107,10 +107,10 @@ issuer = "org.wso2.is.key.manager.tokenpersistence.issuer.ExtendedJWTTokenIssuer
 #[apim.cache.tags]
 #expiry_time = "2m"
 
-#[apim.key_manager]
-#service_url = "<%= @key_manager_server_url %>"
-#username = "$ref{super_admin.username}"
-#password = "$ref{super_admin.password}"
+[apim.key_manager]
+service_url = "<%= @key_manager_server_url %>"
+username = "$ref{super_admin.username}"
+password = "$ref{super_admin.password}"
 #pool.init_idle_capacity = 50
 #pool.max_idle = 100
 #key_validation_handler_type = "default"
@@ -124,8 +124,8 @@ issuer = "org.wso2.is.key.manager.tokenpersistence.issuer.ExtendedJWTTokenIssuer
 #enable_token_encryption = false
 #enable_token_hashing = false
 
-#[apim.devportal]
-#url = "<%= @api_devportal_url %>"
+[apim.devportal]
+url = "<%= @api_devportal_url %>"
 #enable_application_sharing = false
 #if application_sharing_type, application_sharing_impl both defined priority goes to application_sharing_impl
 #application_sharing_type = "default" #changed type, saml, default #todo: check the new config for rest api
@@ -231,9 +231,9 @@ password = "${admin.password}"
 enable = true
 username= "$ref{super_admin.username}"
 password= "$ref{super_admin.password}"
-service_url = "https://localhost:${mgt.transport.https.port}/services/"
-event_listening_endpoints = ["tcp://localhost:5672"]
+service_url = "https://<%= @hostname %>:${mgt.transport.https.port}/services/"
+event_listening_endpoints = ["tcp://<%= @hostname %>:5672"]
 
 [[apim.event_hub.publish.url_group]]
-urls = ["tcp://localhost:9611"]
-auth_urls = ["ssl://localhost:9711"]
+urls = ["tcp://<%= @hostname %>:9611"]
+auth_urls = ["ssl://<%= @hostname %>:9711"]

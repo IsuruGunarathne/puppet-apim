@@ -20,28 +20,34 @@ class apim_gateway::params inherits apim_common::params {
 
   $start_script_template = 'bin/gateway.sh'
   $jvmxms = '256m'
-  $jvmxmx = '1024m'
+  $jvmxmx = '2048m'
 
   $template_list = [
     'repository/conf/deployment.toml',
   ]
 
-  # Define file list
-  $file_list = []
+  $file_list = [
+    'repository/components/lib/postgresql-42.7.3.jar'
+  ]
 
-  # Define remove file list
   $file_removelist = []
 
-  # ----- Carbon.xml config params -----
   $ports_offset = 0
-  /*
-     Host name or IP address of the machine hosting this server
-     e.g. www.wso2.org, 192.168.1.10
-     This is will become part of the End Point Reference of the
-     services deployed on this server instance.
-  */
-  $hostname = 'localhost'
+  $hostname = 'gw.wso2.com'
 
-  # ----- api-manager.xml config params -----
+  # KM endpoint for token validation
+  $key_manager_server_url = 'https://km.wso2.com:${mgt.transport.https.port}${carbon.context}services/'
+
+  # TM endpoints for throttling
+  $throttle_decision_endpoints = '"tcp://tm.wso2.com:5672"'
+  $throttling_url_group = [
+    {
+      traffic_manager_urls      => '"tcp://tm.wso2.com:9611"',
+      traffic_manager_auth_urls => '"ssl://tm.wso2.com:9711"'
+    }
+  ]
+
+  $gateway_labels = ["Default"]
+
   $jms_conn_factory = 'amqp://${admin.username}:${admin.password}@clientid/carbon?brokerlist=\'tcp://${carbon.local.ip}:${jms.port}\''
 }

@@ -115,7 +115,7 @@ class apim_common::params {
     }
   ]
 
-  $gateway_types = 'Regular,APK,AWS,Azure,Kong,Envoy'
+  $gateway_types = 'Regular,APK,AWS,Azure,Kong,Envoy,APIPlatform'
   $gateway_environments = [
     {
       type                                  => 'hybrid',
@@ -145,17 +145,19 @@ class apim_common::params {
   $traffic_manager_auth_url = 'ssl://${carbon.local.ip}:${auth.url.port}'
 
   # ----- Master-datasources config params -----
+  # Shared Postgres for all profiles (all-in-one and distributed). Only one deployment
+  # topology runs against this DB at a time.
 
-  $wso2am_db_url = 'jdbc:h2:./repository/database/WSO2AM_DB;DB_CLOSE_ON_EXIT=FALSE'
-  $wso2am_db_username = 'wso2carbon'
-  $wso2am_db_password = 'wso2carbon'
-  $wso2am_db_type = 'h2'
+  $wso2am_db_url              = 'jdbc:postgresql://db.wso2.com:5432/apimgt'
+  $wso2am_db_username         = 'apimuser'
+  $wso2am_db_password         = 'apimpassword'
+  $wso2am_db_type             = 'postgre'
   $wso2am_db_validation_query = 'SELECT 1'
 
-  $wso2shared_db_url = 'jdbc:h2:./repository/database/WSO2SHARED_DB;DB_CLOSE_ON_EXIT=FALSE'
-  $wso2shared_db_username = 'wso2carbon'
-  $wso2shared_db_password = 'wso2carbon'
-  $wso2shared_db_type = 'h2'
+  $wso2shared_db_url              = 'jdbc:postgresql://db.wso2.com:5432/shareddb'
+  $wso2shared_db_username         = 'apimuser'
+  $wso2shared_db_password         = 'apimpassword'
+  $wso2shared_db_type             = 'postgre'
   $wso2shared_db_validation_query = 'SELECT 1'
 
   # ----- Carbon.xml config params -----
@@ -180,7 +182,12 @@ class apim_common::params {
   $admin_username = 'admin'
   $admin_password = 'admin'
 
-  $event_listener_notification_endpoint = 'https://localhost:${mgt.transport.https.port}/internal/data/v1/notify'
+  # Notification endpoint and event-hub host both point at the Control Plane for
+  # distributed deployments. All-in-one running on this same infra works because
+  # cp.wso2.com resolves to the same box via /etc/hosts.
+  $event_listener_notification_endpoint = 'https://cp.wso2.com:${mgt.transport.https.port}/internal/data/v1/notify'
+
+  $eventhub_service_host = 'cp.wso2.com'
 
   $token_exchange_enable = true
   $token_exchange_allow_refresh_tokens = true
